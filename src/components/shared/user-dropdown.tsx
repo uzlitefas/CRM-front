@@ -8,24 +8,29 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Button } from "../ui/button";
 
 function UserDropdown() {
-  const user = useAuth((state) => state.user);
+  const { user, logout } = useAuth((state) => state);
 
   if (!user) return null;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-      <Avatar>
-        <AvatarImage src="/admin.png" alt={user.role} />
-        <AvatarFallback>{user.role.slice(0,1)}</AvatarFallback>
-      </Avatar>      
+        <Button variant={"outline"} size={"icon"} className="rounded-full">
+          <Avatar className="bg-white pt-[2px]">
+            <AvatarImage src="/admin.png" alt={user.role} />
+            <AvatarFallback>{user.role.slice(0, 1)}</AvatarFallback>
+          </Avatar>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="start">
-        <DropdownMenuLabel>{user?.firstName} {user?.lastName}</DropdownMenuLabel>
+        <DropdownMenuLabel>
+          {user?.firstName} {user?.lastName}
+        </DropdownMenuLabel>
         <DropdownMenuGroup>
           <DropdownMenuItem>
             Profile
@@ -39,20 +44,18 @@ function UserDropdown() {
             Settings
             <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
           </DropdownMenuItem>
-          
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem>GitHub</DropdownMenuItem>
         <DropdownMenuItem>Support</DropdownMenuItem>
         <DropdownMenuItem disabled>API</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={() => logout()}>
           Log out
           <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-
   );
 }
 

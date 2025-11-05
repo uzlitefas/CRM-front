@@ -1,27 +1,25 @@
 import { api } from "@/service/api";
 import { create } from "zustand";
 
-export type Role = "admin" | "doctor" | "reception";
+export type Role = "admin" | "teacher" | "manager";
+
 export type User = {
   id: string;
   email: string;
   role: Role;
   mustChangePassword: boolean;
+  firstName?: string;
+  lastName?: string;
 };
 
 type AuthState = {
-  token: string | null;        
+  token: string | null;
   user: User | null;
   booted: boolean;
 
   login: (accessToken: string, refreshToken: string, user: User) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   setBooted: (v: boolean) => void;
-
-  changing: boolean;
-  changeError: string | null;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
-
   refreshUser: () => Promise<void>;
 };
 
@@ -31,60 +29,59 @@ export const useAuth = create<AuthState>((set, get) => ({
   booted: false,
 
   login: (accessToken, refreshToken, user) => {
-    sessionStorage.setItem("refreshToken", refreshToken);
+    sessionStorage.setItem(
+      "authData",
+      JSON.stringify({ accessToken, refreshToken, user })
+    );
     set({ token: accessToken, user });
   },
 
   logout: async () => {
     try {
-      await api.post("/auth/logout", {
-        refreshToken: sessionStorage.getItem("refreshToken"),
-      });
+      const stored = sessionStorage.getItem("authData");
+      const refreshToken = stored ? JSON.parse(stored).refreshToken : null;
+      if (refreshToken) {
+        await api.post("/auth/logout", { refreshToken });
+      }
     } catch (err) {
       console.error("Logout error:", err);
     } finally {
-      sessionStorage.removeItem("refreshToken");
+      sessionStorage.removeItem("authData");
       set({ token: null, user: null, booted: false });
     }
   },
 
   setBooted: (v) => set({ booted: v }),
 
-  changing: false,
-  changeError: null,
-
-  changePassword: async (currentPassword, newPassword) => {
-    set({ changing: true, changeError: null });
-    try {
-      const { data } = await api.post("/auth/change-password", { currentPassword, newPassword });
-      const user = get().user;
-      if (user) set({ user: { ...user, mustChangePassword: false } });
-      console.log(data.message);
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        (Array.isArray(err?.response?.data)
-          ? err.response.data.join(", ")
-          : "") ||
-        "Parolni almashtirishda xatolik";
-      set({ changeError: msg });
-      throw err;
-    } finally {
-      set({ changing: false });
-    }
-  },
-
   refreshUser: async () => {
-    const refreshToken = sessionStorage.getItem("refreshToken");
-    if (!refreshToken) {
+    const stored = sessionStorage.getItem("authData");
+    if (!stored) {
+      set({ token: null, user: null, booted: true });
+      return;
+    }
+
+    const { refreshToken, user } = JSON.parse(stored);
+
+    if (!refreshToken || !user) {
       set({ token: null, user: null, booted: true });
       return;
     }
 
     try {
-      const { data } = await api.post("/auth/refresh", { refreshToken });
-      if (data?.access_token && data?.user) {
-        set({ token: data.access_token, user: data.user });
+      const { data } = await api.post("/auth/refresh", {
+        refreshToken,
+        userId: user.id,
+      });
+      if (data?.accessToken && data?.refreshToken && data?.user) {
+        sessionStorage.setItem(
+          "authData",
+          JSON.stringify({
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
+            user: data.user,
+          })
+        );
+        set({ token: data.accessToken, user: data.user });
       } else {
         set({ token: null, user: null });
       }
